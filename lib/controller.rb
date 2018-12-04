@@ -43,28 +43,49 @@ def search
   input1 = gets.chomp
   puts "Enter your search term:"
   input2 = gets.chomp
+  us_events_hash =  JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/events.json?city=Philadelphia&page=1&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
   Event.where("#{input1} = ?", "#{input2}").each {|e| display_event(e)}
   nil
+
+end
+
+def seed
+  us_events_hash =  JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/events.json?city=Philadelphia&page=1&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
+  us_events_hash["_embedded"]["events"].map do |event|
+    event["name"]
+    binding.pry
+  end
 end
 
 def display_event(event)
+  # puts ""
+  # puts "Name: #{event.name}"
+  # puts "Location: #{event.location}"
+  # puts "Venue: #{event.venue}"
+  # puts "Date: #{event.date}"
+  # puts "Attractions: #{event.attractions}"
+  # puts "Tickets starting at: $#{event.min_price}"
+  # puts "Category: #{event.classification}"
+  # puts "//////////////////////////////////////////////"
+  # puts ""
   puts ""
-  puts "Name: #{event.name}"
-  puts "Location: #{event.location}"
-  puts "Venue: #{event.venue}"
-  puts "Date: #{event.date}"
-  puts "Attractions: #{event.attractions}"
-  puts "Tickets starting at: $#{event.min_price}"
-  puts "Category: #{event.classification}"
+  puts "Name: #{event["name"]}"
+  puts "Location: #{event["_embedded"]["venues"][0]["city"]["name"]}, #{event["_embedded"]["venues"][0]["state"]["stateCode"]}"
+  puts "Venue: #{event["_embedded"]["venues"][0]["name"]}"
+  puts "Date: #{event["dates"]["start"]["dateTime"]}"
+  puts "Attractions: #{event["_embedded"]["attractions"].map {|a| a["name"]}}"
+  binding.pry
+  puts "Tickets starting at: $#{event["priceRanges"][0]["min"]}"
+  # puts "Category: #{event["classifications"].map {|c| c["segment"]["name"]}}"
   puts "//////////////////////////////////////////////"
   puts ""
+
 end
 
 def run
   welcome
   @user = login
 
-  
   # create_user method here
   # delete_user method here
   # logout method here
