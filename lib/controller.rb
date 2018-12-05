@@ -43,43 +43,92 @@ def search
   input1 = gets.chomp
   puts "Enter your search term:"
   input2 = gets.chomp
-  us_events_hash =  JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/events.json?city=Philadelphia&page=1&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
-  Event.where("#{input1} = ?", "#{input2}").each {|e| display_event(e)}
-  nil
 
+  case input1
+    when "name"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "keyword=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    when "attraction"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "attraction=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    when "location"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "city=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    # when "price"
+    #   url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "keyword=#{input1}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    when "venue"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueid=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    else
+      puts "Invalid Search"
+  end
+  hash = JSON.parse(RestClient.get(@url))
+  hash["_embedded"]["events"].each do |event|
+    display_event(event)
+  end
+
+
+
+  puts "Would you like to save an event? yes or no?"
+  input3 = gets.chomp
+  if input3 == "yes"
+    puts "Which number would you like to save? (1-20)"
+    input4 = gets.chomp
+    save(input4)
+  end
+
+  #What do we want to allow our user to do next? (after saving/not saving)
+
+  # us_events_hash =  JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/events.json?city=Philadelphia&page=1&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
+  # Event.where("#{input1} = ?", "#{input2}").each {|e| display_event(e)}
+  # nil
+end
+
+def save(num)
+  hash = JSON.parse(RestClient.get(@url))
+  event = hash["_embedded"]["events"][num.to_i - 1]
+  #         name, date, location, venue, attractions, min_price, classsification
+  name = event["name"]
+  date = event["dates"]["start"]["dateTime"]
+  location = event["_embedded"]["venues"][0]["city"]["name"] +", "+ event["_embedded"]["venues"][0]["state"]["stateCode"]
+  venue = event["_embedded"]["venues"][0]["name"]
+  attractions = event["_embedded"]["attractions"].map {|a| a["name"]}
+  min_price = event["priceRanges"][0]["min"]
+  classification = event["classifications"][0].values[1...-1].map {|c| c["name"]}
+  e = Event.create(name: name, date: date, location: location, venue: venue, attractions: attractions.join(", "), min_price: min_price, classification: classification.join(", "))
+  UserEvent.create(user_id: @user.id, event_id: e.id)
 end
 
 def seed
-  us_events_hash =  JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/events.json?city=Philadelphia&page=1&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
-  us_events_hash["_embedded"]["events"].map do |event|
-    event["name"]
-    binding.pry
+  url = "https://app.ticketmaster.com//discovery/v2/events.json?countryCode=US&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+  @us_events_hash = JSON.parse(RestClient.get(url))
+  @us_events_hash["_embedded"]["events"].each do |event|
+    # event["name"]
+    display_event(event)
   end
+  next_page
 end
 
 def display_event(event)
-  # puts ""
-  # puts "Name: #{event.name}"
-  # puts "Location: #{event.location}"
-  # puts "Venue: #{event.venue}"
-  # puts "Date: #{event.date}"
-  # puts "Attractions: #{event.attractions}"
-  # puts "Tickets starting at: $#{event.min_price}"
-  # puts "Category: #{event.classification}"
-  # puts "//////////////////////////////////////////////"
-  # puts ""
+  # event = JSON.parse(RestClient.get(@url))
+  # event = event["_embedded"]["events"]
   puts ""
   puts "Name: #{event["name"]}"
   puts "Location: #{event["_embedded"]["venues"][0]["city"]["name"]}, #{event["_embedded"]["venues"][0]["state"]["stateCode"]}"
   puts "Venue: #{event["_embedded"]["venues"][0]["name"]}"
   puts "Date: #{event["dates"]["start"]["dateTime"]}"
-  puts "Attractions: #{event["_embedded"]["attractions"].map {|a| a["name"]}}"
-  binding.pry
-  puts "Tickets starting at: $#{event["priceRanges"][0]["min"]}"
-  # puts "Category: #{event["classifications"].map {|c| c["segment"]["name"]}}"
+  if event["_embedded"]["attractions"] != nil
+    puts "Attractions: #{event["_embedded"]["attractions"].map {|a| a["name"]}}"
+  end
+  if event["priceRanges"] != nil
+    puts "Tickets starting at: $#{event["priceRanges"][0]["min"]}"
+  end
+  puts "Categories: #{event["classifications"][0].values[1...-1].map {|c| c["name"]}}"
+  # binding.pry
   puts "//////////////////////////////////////////////"
   puts ""
+end
 
+def next_page
+  hash = JSON.parse(RestClient.get(@url))
+  hash["_links"]["next"]["href"]
+  url = "https://app.ticketmaster.com/" + hash["_links"]["next"]["href"] + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
 end
 
 def run
