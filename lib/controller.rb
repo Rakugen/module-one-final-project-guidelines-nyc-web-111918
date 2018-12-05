@@ -76,7 +76,9 @@ def search
     when "location"
       @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "city=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     when "venue"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueid=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      ven_hash = JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/venues.json?countryCode=US&keyword=" + input2 + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
+      ven_id = ven_hash["_embedded"]["venues"][0]["id"]
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueId=#{ven_id}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     else
       puts "Invalid Search"
   end
