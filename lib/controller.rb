@@ -58,9 +58,9 @@ def login
 end
 
 def search
-  puts "You can search by name, attraction, location, classification and venue."
+  puts "You can search by name, location, and venue."
   input1 = ""
-  terms = ["name","attraction","location","venue"]
+  terms = ["name","location","venue"]
   while !terms.include?(input1)
     puts "Enter your search type:"
     input1 = gets.chomp
@@ -70,15 +70,15 @@ def search
 
   case input1
     when "name"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "keyword=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
-    when "attraction"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "attraction=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "keyword=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+    # when "attraction"
+    #   @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "attraction=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     when "location"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "city=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "city=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     when "venue"
       ven_hash = JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/venues.json?countryCode=US&keyword=" + input2 + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
       ven_id = ven_hash["_embedded"]["venues"][0]["id"]
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueId=#{ven_id}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueId=#{ven_id}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     else
       puts "Invalid Search"
   end
@@ -93,20 +93,24 @@ def search
     input4 = ""
     while input4 != "no"
       save
-      puts "Would you like to view more results?"
-      input4 = gets.chomp
-        if input4 == "yes"
-          next_page
-          hash = JSON.parse(RestClient.get(@url))
-          num = 0
-          if hash["page"]["totalElements"] != 0
-            hash["_embedded"]["events"].each do |event|
-              num += 1
-              display_event(num, event)
+      if hash["_links"]["next"] != nil
+        puts "Would you like to view more results?"
+        input4 = gets.chomp
+          if input4 == "yes"
+            next_page
+            hash = JSON.parse(RestClient.get(@url))
+            num = 0
+            if hash["page"]["totalElements"] != 0
+              hash["_embedded"]["events"].each do |event|
+                num += 1
+                display_event(num, event)
+              end
             end
           end
-        end
+      else
+        input4 = "no"
       end
+    end
   else
     puts ""
     puts "No search results found."
@@ -120,6 +124,7 @@ def save
   if input3 == "yes"
     puts "Which number would you like to save? (1-20)"
     input4 = gets.chomp
+    hash = JSON.parse(RestClient.get(@url))
     event = hash["_embedded"]["events"][input4.to_i - 1]
     #         name, date, location, venue, attractions, min_price, classsification
     name = event["name"]
@@ -136,15 +141,15 @@ def save
   # hash = JSON.parse(RestClient.get(@url))
 end
 
-def seed
-  url = "https://app.ticketmaster.com//discovery/v2/events.json?countryCode=US&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
-  @us_events_hash = JSON.parse(RestClient.get(url))
-  @us_events_hash["_embedded"]["events"].each do |event|
-    # event["name"]
-    display_event(event)
-  end
-  next_page
-end
+# def seed
+#   url = "https://app.ticketmaster.com//discovery/v2/events.json?countryCode=US&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+#   @us_events_hash = JSON.parse(RestClient.get(url))
+#   @us_events_hash["_embedded"]["events"].each do |event|
+#     # event["name"]
+#     display_event(event)
+#   end
+#   next_page
+# end
 
 def display_event(num, event)
   puts ""
