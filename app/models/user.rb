@@ -1,5 +1,6 @@
+# require "../lib/controller"
 class User < ActiveRecord::Base
-  has_many :user_events
+  has_many :user_events #, dependent: :destroy
   has_many :events, through: :user_events
 
   def self.most_popular_location
@@ -13,4 +14,17 @@ class User < ActiveRecord::Base
     end
     hash.sort_by {|k, v| v}.last[0]
   end
+
+  def total_cost
+    total = 0
+    self.events.each do |e|
+      total += e.min_price
+    end
+    total
+  end
+
+  def upcoming_event
+    show_event(1, self.events.sort_by {|e| e.date}.first)
+  end
+
 end # end of User class

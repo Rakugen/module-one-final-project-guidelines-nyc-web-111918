@@ -64,7 +64,7 @@ def delete_event
       puts "Which event would you like to delete?"
       input1 = gets.chomp
     end
-# binding.pry
+    binding.pry
     str = "#{@user.user_events[input1.to_i - 1].event.name} has been removed from events!"
     @user.user_events[input1.to_i - 1].destroy
     puts str
@@ -73,6 +73,8 @@ def delete_event
     puts "You have no events to delete."
     puts ""
   end
+  # @user.update_all
+  # binding.pry
 end
 
 def search
@@ -101,7 +103,12 @@ def search
       puts "Invalid Search"
       puts ""
   end
-  hash = JSON.parse(RestClient.get(@url))
+
+  hash = call_api
+  if hash == nil
+    return
+  end
+
   num = 0
   if hash["page"]["totalElements"] != 0
     hash["_embedded"]["events"].each do |event|
@@ -112,12 +119,17 @@ def search
     input4 = ""
     while input4 != "no"
       save
-      if hash["_links"]["next"] != nil
+      if hash == nil
+        # binding.pry
+        # puts "Error on second next page call"
+        input4 = "no"
+      elsif hash["_links"]["next"] != nil
         puts "Would you like to view more results?"
         input4 = gets.chomp
           if input4 == "yes"
             next_page
-            hash = JSON.parse(RestClient.get(@url))
+            hash = call_api
+            # binding.pry  
             num = 0
             if hash["page"]["totalElements"] != 0
               hash["_embedded"]["events"].each do |event|
@@ -125,6 +137,8 @@ def search
                 display_event(num, event)
               end
             end
+          else
+            input4 = "no"
           end
       else
         input4 = "no"
@@ -140,21 +154,36 @@ end
 def save
   puts "Would you like to save an event? yes or no?"
   input3 = gets.chomp
+
   if input3 == "yes"
     puts "Which number would you like to save? (1-20)"
     input4 = gets.chomp
-    hash = JSON.parse(RestClient.get(@url))
+    hash = call_api
     event = hash["_embedded"]["events"][input4.to_i - 1]
     #         name, date, location, venue, attractions, min_price, classsification
     name = event["name"]
-    date = event["dates"]["start"]["dateTime"]
+    if date = event["dates"]["start"]["dateTime"] == nil
+      puts "Unable to save event."
+      return
+    else
+      date = event["dates"]["start"]["dateTime"]
+    end
     location = event["_embedded"]["venues"][0]["city"]["name"] +", "+ event["_embedded"]["venues"][0]["state"]["stateCode"]
     venue = event["_embedded"]["venues"][0]["name"]
-    attractions = event["_embedded"]["attractions"].map {|a| a["name"]}
-    min_price = event["priceRanges"][0]["min"]
+    if event["_embedded"]["attractions"] == nil
+      puts "Unable to save event."
+      return
+    else
+      attractions = event["_embedded"]["attractions"].map {|a| a["name"]}
+    end
+    if event["priceRanges"] == nil
+      puts "Unable to save event."
+      return
+    else
+      min_price = event["priceRanges"][0]["min"]
+    end
     classification = event["classifications"][0].values[1...-1].map {|c| c["name"]}
     e = Event.find_or_create_by(name: name, date: Time.parse(date), location: location, venue: venue, attractions: attractions.join(", "), min_price: min_price, classification: classification.join(", "))
-    binding.pry
     UserEvent.create(user_id: @user.id, event_id: e.id)
   end
 
@@ -173,6 +202,7 @@ end
 
 def display_event(num, event)
   puts ""
+  puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   puts "#{num}."
   puts "Name: #{event["name"]}"
   puts "Location: #{event["_embedded"]["venues"][0]["city"]["name"]}, #{event["_embedded"]["venues"][0]["state"]["stateCode"]}"
@@ -184,29 +214,33 @@ def display_event(num, event)
   if event["priceRanges"] != nil
     puts "Tickets starting at: $#{event["priceRanges"][0]["min"]}"
   end
-  puts "Categories: #{event["classifications"][0].values[1...-1].map {|c| c["name"]}}"
-  puts "//////////////////////////////////////////////"
+  puts "Classifications: #{event["classifications"][0].values[1...-1].map {|c| c["name"]}}"
+  puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   puts ""
 end
 
 def next_page
-  hash = JSON.parse(RestClient.get(@url))
+  hash = call_api
+  if hash == nil
+    puts "Error from next page."
+  end
   hash["_links"]["next"]["href"]
   @url = "https://app.ticketmaster.com/" + hash["_links"]["next"]["href"] + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
-  binding.pry
 end
 
 def run
   welcome
   login
   response = menu
-  while response != "8"
+  while response != "9"
     response = menu
   end
 # binding.pry
 end
 
 def menu
+  puts ""
+  puts "======================================================"
   puts "What would you like to do?"
   puts "1. Create User"
   puts "2. Delete User"
@@ -215,8 +249,9 @@ def menu
   puts "5. Delete a saved event"
   puts "6. View all users"
   puts "7. Switch users"
-  puts "8. Exit"
-
+  puts "8. My event stats "
+  puts "9. Exit"
+  puts "======================================================"
   input = gets.chomp
   case input
   when "1"
@@ -248,21 +283,85 @@ def menu
   when "7"
     switch_user
     puts ""
+  when "8"
+    menu2
   else
-    "8"
+    "9"
   end
+end
+
+def menu2
+  puts ""
+  puts "======================================================"
+  puts "What would you like to do?"
+  puts "1. See most popular event people have saved"
+  puts "2. View total cost of my events"
+  puts "3. View my upcoming event"
+  puts "4. Most popular location by users"
+  puts "5. View most popular venue"
+  # puts "6. "
+  # puts "7. "
+  # puts "8. "
+  puts "9. Exit"
+  puts "======================================================"
+  input = gets.chomp
+  case input
+  when "1"
+    puts ""
+    puts UserEvent.most_popular_event
+    puts ""
+  when "2"
+    puts ""
+    puts "$#{@user.total_cost}"
+    puts ""
+  when "3"
+    @user.upcoming_event
+  when "4"
+    puts ""
+    puts User.most_popular_location
+    puts ""
+  when "5"
+    puts ""
+    puts UserEvent.most_popular_venue
+    puts ""
+  # when "5"
+  # when "6"
+  # when "7"
+  else
+    "9"
+  end
+  menu
+end
+
+def call_api
+  res = RestClient.get(@url){|response, request, result, &block|
+    case response.code
+    when 200
+      return JSON.parse(response)
+    else
+      puts "The servers are overloaded!!!"
+      menu
+    end
+  }
+  # if res.code != 200
+  #   puts "Servers busy! Try waiting 10 seconds then searching again."
+  # else
+  #   JSON.parse(res)
+  # end
+  res
 end
 
 def show_event(num, e)
   puts ""
+  puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   puts "#{num}."
-  puts e.name
-  puts e.date
-  puts e.location
-  puts e.venue
-  puts e.attractions
-  puts e.min_price
-  puts e.classification
-  puts "//////////////////////////////////"
+  puts "Name: #{e.name}"
+  puts "Date: #{e.date.to_date}"
+  puts "Location: #{e.location}"
+  puts "Venue: #{e.venue}"
+  puts "Attractions: #{e.attractions}"
+  puts "Price: $#{e.min_price}"
+  puts "Classifications: #{e.classification}"
+  puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
   puts ""
 end
