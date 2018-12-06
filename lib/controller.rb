@@ -2,6 +2,18 @@ def welcome
   puts "Welcome to the Event Finder."
 end
 
+def login
+  puts "Enter your name to access your account, or create a new one with:"
+  user_name = gets.chomp
+  if User.find_by(name: user_name) == nil
+    puts "User not found."
+    create_user
+  else
+    @user = User.find_by(name: user_name)
+    puts "You are now logged in as #{user_name}."
+  end
+end
+
 def create_user
   puts "Please enter your first name [Example: Simon]"
   name = gets.chomp
@@ -22,6 +34,19 @@ def save_event(event_id)
   User.find(@user.id).events << Event.find(event_id)
   # UserEvent.create(user_id: user_id, event_id: event_id)
   puts "#{Event.find(event_id).name} has been added to your saved events!"
+end
+
+def switch_user
+  puts "Please enter your user name:"
+  user_name = gets.chomp
+
+  if User.find_by(name: user_name) != nil
+    puts "You are now logged in as #{user_name}."
+    @user = User.find_by(name: user_name)
+  else
+    puts "Failed to login. Account not found."
+    puts ""
+  end
 end
 
 def delete_event
@@ -50,37 +75,31 @@ def delete_event
   end
 end
 
-def login
-  puts "Enter your name to access your account, or create a new one with:"
-  user_name = gets.chomp
-  puts "You are now logged in as #{user_name}."
-  User.find_or_create_by(name: user_name)
-end
-
 def search
-  puts "You can search by name, location, and venue."
+  # puts "You can search by name, location, and venue."
   input1 = ""
   terms = ["name","location","venue"]
   while !terms.include?(input1)
-    puts "Enter your search type:"
+    puts "Enter your search type: (name, location, venue)"
     input1 = gets.chomp
   end
-  puts "Enter your search term:"
+  puts "What would you like to search for?"
   input2 = gets.chomp
 
   case input1
     when "name"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "keyword=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?countryCode=US&" + "keyword=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     # when "attraction"
     #   @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "attraction=#{input2}" + "&page=1&size=20&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     when "location"
-      @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "city=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+      @url = "https://app.ticketmaster.com/discovery/v2/events.json?countryCode=US&" + "city=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     when "venue"
-      ven_hash = JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/venues.json?countryCode=US&keyword=" + input2 + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
+      ven_hash = JSON.parse(RestClient.get("https://app.ticketmaster.com/discovery/v2/venues.json?countryCode=US&" + "keyword=#{input2}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"))
       ven_id = ven_hash["_embedded"]["venues"][0]["id"]
       @url = "https://app.ticketmaster.com/discovery/v2/events.json?" + "venueId=#{ven_id}" + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
     else
       puts "Invalid Search"
+      puts ""
   end
   hash = JSON.parse(RestClient.get(@url))
   num = 0
@@ -134,7 +153,8 @@ def save
     attractions = event["_embedded"]["attractions"].map {|a| a["name"]}
     min_price = event["priceRanges"][0]["min"]
     classification = event["classifications"][0].values[1...-1].map {|c| c["name"]}
-    e = Event.create(name: name, date: date, location: location, venue: venue, attractions: attractions.join(", "), min_price: min_price, classification: classification.join(", "))
+    e = Event.find_or_create_by(name: name, date: Time.parse(date), location: location, venue: venue, attractions: attractions.join(", "), min_price: min_price, classification: classification.join(", "))
+    binding.pry
     UserEvent.create(user_id: @user.id, event_id: e.id)
   end
 
@@ -173,13 +193,14 @@ def next_page
   hash = JSON.parse(RestClient.get(@url))
   hash["_links"]["next"]["href"]
   @url = "https://app.ticketmaster.com/" + hash["_links"]["next"]["href"] + "&apikey=heXwN4lrodGKyLyOeXrVsV9MpB8W7e5w"
+  binding.pry
 end
 
 def run
   welcome
-  @user = login
+  login
   response = menu
-  while response != "7"
+  while response != "8"
     response = menu
   end
 # binding.pry
@@ -193,7 +214,8 @@ def menu
   puts "4. View your saved events"
   puts "5. Delete a saved event"
   puts "6. View all users"
-  puts "7. Exit"
+  puts "7. Switch users"
+  puts "8. Exit"
 
   input = gets.chomp
   case input
@@ -223,8 +245,11 @@ def menu
       puts u.name
     end
     puts ""
+  when "7"
+    switch_user
+    puts ""
   else
-    "7"
+    "8"
   end
 end
 
