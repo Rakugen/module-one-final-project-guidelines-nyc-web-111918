@@ -24,7 +24,11 @@ class User < ActiveRecord::Base
   end
 
   def upcoming_event
-    show_event(1, self.events.sort_by {|e| e.date}.first)
+    if self.user_events != []
+      show_event(1, self.events.sort_by {|e| e.date}.first)
+    else
+      puts " You have no events to view."
+    end
   end
 
 end # end of User class

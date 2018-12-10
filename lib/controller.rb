@@ -1,5 +1,5 @@
 def welcome
-  a = Artii::Base.new :font => 'doh'
+  a = Artii::Base.new :font => 'big'
   puts ""
   puts "Welcome to"
   puts a.asciify('Event.Ful')
@@ -89,7 +89,7 @@ def delete_event
     @user.user_events[input1.to_i - 1].destroy
     # old_user = @user
     @user = User.find(@user.id)
-    binding.pry
+    # binding.pry
     puts str
   else
     puts ""
